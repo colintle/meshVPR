@@ -6,12 +6,13 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      - REDIS_HOST=74.82.30.226
-    command: uvicorn --app-dir ./app app:app --host 0.0.0.0 --port 80
+      - REDIS_HOST=geolocator-redis-stack
+    command: uvicorn --app-dir ./app app:app --host 0.0.0.0 --port 80 --reload
     # hack to avoid docker compose volume perrmission issues
     user: root
     volumes:
       -  torch_cache:/root/.cache/torch
+      # - ./app:/app
     ports:
       - 80:80
     depends_on:

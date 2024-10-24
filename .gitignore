@@ -4,3 +4,4 @@
 MeshSynth/.vsconfig
 MeshSynth/.editorconfig
 MeshSynth/Content/CesiumSettings/CesiumIonSaaS.uasset
+VprServer/app/best_model.pth

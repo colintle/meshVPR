@@ -78,11 +78,11 @@ app = FastAPI()
 
 REDIS_HOST = os.getenv("REDIS_HOST", "127.0.0.1")
 
-redis_client = redis.Redis(host=REDIS_HOST, port=6379, protocol=3, decode_responses=True, password="meshvpr,cvpr,2024")
+redis_client = redis.Redis(host=REDIS_HOST, port=6379, decode_responses=True, password="meshvpr,eccv,2024")
 # increase redis search timeout
 redis_client.ft().config_set("TIMEOUT", 20000) # 10 seconds
 
-redis_client_binary = redis.Redis(host=REDIS_HOST, port=6379, protocol=3, decode_responses=False, password="meshvpr,cvpr,2024")
+redis_client_binary = redis.Redis(host=REDIS_HOST, port=6379, decode_responses=False, password="meshvpr,eccv,2024")
 # increase redis search timeout
 redis_client_binary.ft().config_set("TIMEOUT", 20000) # 10 seconds
 
@@ -137,12 +137,12 @@ def wait_for_indexing_to_complete(redis_client: redis.Redis, index_name: str):
 
     with tqdm.tqdm(total=100, desc=f"building {index_name}", ncols=100) as pbar:
         status = redis_client.ft(index_name).info()
-        prev_percent_indexed = round(status["percent_indexed"] * 100, 2)
+        prev_percent_indexed = round(float(status["percent_indexed"]) * 100, 2)
         pbar.update(prev_percent_indexed)
 
         while True:
             status = redis_client.ft(index_name).info()
-            current_percent_indexed = round(status["percent_indexed"] * 100, 2)
+            current_percent_indexed = round(float(status["percent_indexed"]) * 100, 2)
             pbar.update(current_percent_indexed - prev_percent_indexed)
             prev_percent_indexed = current_percent_indexed
 
@@ -196,17 +196,15 @@ async def search_image(request: Request):
             )
 
             result_arr = []
-            for result in vector_result[b'results']:
-                doc = result[b'extra_attributes']
-
+            for result in vector_result.docs:
                 result_arr.append({
-                    "thumbnail": base64.b64encode(doc[b"Thumbnail"]).decode('utf-8'),
-                    "lon": float(doc[b"LonLat"].decode('utf-8').split(",")[0]),
-                    "lat": float(doc[b"LonLat"].decode('utf-8').split(",")[1]),
-                    "altitude": float(doc[b"Altitude"].decode('utf-8')),
-                    "heading_angle": float(doc[b"HeadingAngle"].decode('utf-8')),
-                    "dataset_name": doc[b"DatasetName"].decode('utf-8'),
-                    "score": float(doc[b"__Descriptor_score"].decode('utf-8'))
+                    "thumbnail": result["Thumbnail"],
+                    "lon": float(result["LonLat"].split(",")[0]),
+                    "lat": float(result["LonLat"].split(",")[1]),
+                    "altitude": float(result["Altitude"]),
+                    "heading_angle": float(result["HeadingAngle"]),
+                    "dataset_name": result["DatasetName"],
+                    "score": float(result["__Descriptor_score"])
                 })
 
             return {"result": result_arr}
@@ -294,6 +292,7 @@ def process_sample(pano_path, pano_tensor, out_dir, dataset_name):
             sample.Descriptor = tensor_to_redis_bytes(descriptors[i])
 
         redis_upload_sample_batch(redis_client, samples)
+        print("done")
 
 def build_unique_sample_id(sample: Sample):
     sample_file_path_hash = hashlib.blake2b(str(sample.ImageFilePath).encode("utf-8"), digest_size=8).hexdigest()
